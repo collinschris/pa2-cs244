@@ -27,9 +27,13 @@ def ecmp(graph, ways, nid):
     return d
 
 
-n_switches = 6
-n_nbr_switches_per_switch = 3
+n_switches = 12
+n_nbr_switches_per_switch = 4
 g = make_rrg(n_nbr_switches_per_switch, n_switches)
 g.Dump()
+labels = snap.TIntStrH()
+for NI in g.Nodes():
+    labels[NI.GetId()] = str(NI.GetId())
+snap.DrawGViz(g, snap.gvlDot, "output.gif", " ", labels)
 print ecmp(g, 2, 1)
 
