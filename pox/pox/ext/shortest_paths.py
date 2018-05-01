@@ -13,7 +13,7 @@ def get_all_paths_to_root(bfs_tree, root, start):
             all_paths.append(path + [start])
     return all_paths
 
-def k_shortest_paths(graph, k, nid):
+def ecmp(graph, ways, nid):
     bfs_tree = snap.GetBfsTree(g, nid, True, False)
     n = graph.GetNodes()
     d = {}
@@ -21,13 +21,15 @@ def k_shortest_paths(graph, k, nid):
         if other != nid:
             all_paths_to_root = get_all_paths_to_root(bfs_tree, nid, other)
             tupled = [(len(x), x) for x in all_paths_to_root]
-            d[other] = [path for length, path in sorted(tupled)[:k]]
+            srted = sorted(tupled)
+            shortest_len, shortest_path = srted[0]
+            d[other] = [path for length, path in srted[:ways] if length == shortest_len]
     return d
 
 
-n_switches = 4
-n_nbr_switches_per_switch = 2
+n_switches = 6
+n_nbr_switches_per_switch = 3
 g = make_rrg(n_nbr_switches_per_switch, n_switches)
 g.Dump()
-print k_shortest_paths(g, 2, 1)
+print ecmp(g, 2, 1)
 

@@ -1,6 +1,7 @@
 import numpy as np
 import snap
 
+
 def permute(graph, stub_list):
     permuted = np.random.permutation(stub_list)
     for i in range(0, len(stub_list), 2):
@@ -13,6 +14,7 @@ def permute(graph, stub_list):
     return True
 
 def make_rrg(c_degree, num):
+    np.random.seed(16)
     stub_list = []
     for node_id in range(num):
         for i in range(c_degree):
