@@ -41,9 +41,9 @@ def make_rrg_al(c_degree, num):
 
 class JellyFishTop(Topo):
     def build(self):
-        n_switches = 8
+        n_switches = 4
         n_hosts_per_switch = 2
-        n_nbr_switches_per_switch = 3
+        n_nbr_switches_per_switch = 2
 
         switches = [self.addSwitch('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(switches):
