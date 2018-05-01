@@ -12,32 +12,8 @@ sys.path.append("../../")
 from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
-import numpy as np
 
-def permute(adj_set, stub_list):
-    permuted = np.random.permutation(stub_list)
-    for i in range(0, len(stub_list), 2):
-        if (permuted[i] == permuted[i+1]):
-            # no self edges
-            return False
-        s = sorted([permuted[i], permuted[i+1]])
-        tup = (s[0], s[1])
-        if tup in adj_set:
-            return False
-        adj_set.add(tup)
-    return True
-
-def make_rrg_al(c_degree, num):
-    stub_list = []
-    for node_id in range(num):
-        for i in range(c_degree):
-            stub_list.append(node_id)
-
-    while True:
-        adj_list = set()
-        success = permute(adj_list, stub_list)
-        if (success):
-            return adj_list
+from random_regular_graph import *
 
 class JellyFishTop(Topo):
     def build(self):
@@ -48,22 +24,24 @@ class JellyFishTop(Topo):
         switches = [self.addSwitch('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(switches):
             for x in range(n_hosts_per_switch):
-                host = self.addHost('h%d-%d' % (i, x))
+                host = self.addHost('h%ds%d' % (x, i))
                 self.addLink(host, switch)
                 print "%s -> %s" % (host, switch)
 
-        adj_list = make_rrg_al(n_nbr_switches_per_switch, n_switches)
-        print adj_list
+        g = make_rrg(n_nbr_switches_per_switch, n_switches)
 
-        for left, right in adj_list:
-            self.addLink(switches[left], switches[right])
-            print "%s -> %s" % (switches[left], switches[right])
+        for edge in g.Edges():
+            src = 's%d' % edge.GetSrcNId()
+            dst = 's%d' % edge.GetDstNId()
+            self.addLink(src, dst)
+            print "%s -> %s" % (src, dst)
 
 
 def experiment(net):
     net.start()
     sleep(3)
-    net.pingAll()
+    CLI(net)
+    # net.pingAll()
     net.stop()
 
 def main():
