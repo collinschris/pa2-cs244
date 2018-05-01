@@ -12,19 +12,49 @@ sys.path.append("../../")
 from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
+import numpy as np
+
+def permute(adj_set, stub_list):
+    permuted = np.random.permutation(stub_list)
+    for i in range(0, len(stub_list), 2):
+        if (permuted[i] == permuted[i+1]):
+            # no self edges
+            return False
+        s = sorted([permuted[i], permuted[i+1]])
+        tup = (s[0], s[1])
+        if tup in adj_set:
+            return False
+        adj_set.add(tup)
+    return True
+
+def make_rrg_al(c_degree, num):
+    stub_list = []
+    for node_id in range(num):
+        for i in range(c_degree):
+            stub_list.append(node_id)
+
+    while True:
+        adj_list = set()
+        success = permute(adj_list, stub_list)
+        if (success):
+            return adj_list
 
 class JellyFishTop(Topo):
-    ''' TODO, build your topology here'''
     def build(self):
-        leftHost = self.addHost( 'h1' )
-        rightHost = self.addHost( 'h2' )
-        leftSwitch = self.addSwitch( 's3' )
-        rightSwitch = self.addSwitch( 's4' )
+        n_switches = 10
+        n_hosts_per_switch = 8
+        n_nbr_switches_per_switch = 2
 
-        # Add links
-        self.addLink( leftHost, leftSwitch )
-        self.addLink( leftSwitch, rightSwitch )
-        self.addLink( rightSwitch, rightHost )
+        switches = [self.addSwitch('s' + x) for x in range(n_switches)]
+        for i, switch in enumerate(switches):
+            for x in range(n_hosts_per_switch):
+                host = self.addHost('h%d-%d' % (i, x))
+                self.addLink(host, switch)
+
+        adj_list = make_rrg_al(n_nbr_switches_per_switch, n_switches)
+
+        for left, right in adj_list:
+            self.addLink(switches[left], switches[right])
 
 
 def experiment(net):
