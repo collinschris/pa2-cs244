@@ -22,11 +22,12 @@ def find_all_k_shorest_paths(graph, k):
     paths = []
     nodes = list(graph.nodes())
     for node1_idx in range(graph.number_of_nodes()):
-        # choose node 2 at random
-        node2_idx = random.randint(0, graph.number_of_nodes()-1)
-        while node1_idx == node2_idx:
+        if "h" in str(nodes[node1_idx]):
+            # choose node 2 at random
             node2_idx = random.randint(0, graph.number_of_nodes()-1)
-        paths += k_shortest_paths(graph, nodes[node1_idx], nodes[node2_idx], k)
+            while node1_idx == node2_idx and "h" not in str(nodes[node2_idx]):
+                node2_idx = random.randint(0, graph.number_of_nodes()-1)
+            paths += k_shortest_paths(graph, nodes[node1_idx], nodes[node2_idx], k)
     return paths
 
 def find_all_ecmp_paths(graph, k):
@@ -34,11 +35,12 @@ def find_all_ecmp_paths(graph, k):
     paths = []
     nodes = list(graph.nodes())
     for node1_idx in range(graph.number_of_nodes()):
-        # choose node 2 at random
-        node2_idx = random.randint(0, graph.number_of_nodes()-1)
-        while node1_idx == node2_idx:
+        if "h" in str(nodes[node1_idx]):
+            # choose node 2 at random
             node2_idx = random.randint(0, graph.number_of_nodes()-1)
-        paths += ecmp(graph, nodes[node1_idx], nodes[node2_idx], k)
+            while node1_idx == node2_idx and "h" not in str(nodes[node2_idx]):
+                node2_idx = random.randint(0, graph.number_of_nodes()-1)
+            paths += ecmp(graph, nodes[node1_idx], nodes[node2_idx], k)
     return paths
 
 # init graph
