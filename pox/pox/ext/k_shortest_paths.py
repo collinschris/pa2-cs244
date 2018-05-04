@@ -5,9 +5,8 @@ import networkx as nx
 def k_shortest_paths(graph, source, target, k, weight=None):
     return list(islice(nx.shortest_simple_paths(graph, source, target, weight=weight), k))
 
-n_switches = 6
-n_nbr_switches_per_switch = 3
-g = make_rrg(n_nbr_switches_per_switch, n_switches)
-print g.nodes()
-print g.edges()
-print k_shortest_paths(g, 0, 4, 10)
+def ecmp(graph, source, target, k, weight=None):
+    shortest_paths = k_shortest_paths(graph, source, target, k, weight)
+    shortest_paths = sorted(shortest_paths, key=lambda path: len(path))
+    shortest_path_len = len(shortest_paths[0])
+    return [path for path in shortest_paths if len(path) == shortest_path_len]
