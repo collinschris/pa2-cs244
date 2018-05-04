@@ -23,6 +23,7 @@ It's roughly similar to the one Brandon Heller did for NOX.
 
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
+import time
 
 log = core.getLogger()
 
@@ -44,6 +45,9 @@ class Tutorial (object):
     # Use this table to keep track of which ethernet address is on
     # which switch port (keys are MACs, values are ports).
     self.mac_to_port = {}
+
+    self.start_time = time.time()
+    self.delay = 10 # seconds
 
 
   def resend_packet (self, packet_in, out_port):
@@ -71,6 +75,7 @@ class Tutorial (object):
     # We want to output to all ports -- we do that using the special
     # OFPP_ALL port as the output port.  (We could have also used
     # OFPP_FLOOD.)
+    print "WRONG SHOULD NOT RUN THIS PART"
     self.resend_packet(packet_in, of.OFPP_ALL)
 
     # Note that if we didn't get a valid buffer_id, a slightly better
@@ -83,17 +88,20 @@ class Tutorial (object):
     Implement switch-like behavior.
     """
 
-    """ # DELETE THIS LINE TO START WORKING ON THIS (AND THE ONE BELOW!) #
 
     # Here's some psuedocode to start you off implementing a learning
     # switch.  You'll need to rewrite it as real Python code.
 
     # Learn the port for the source MAC
-    self.mac_to_port ... <add or update entry>
+    if packet.src not in self.mac_to_port:
+      log.info("learning: %s:%s" % (str(packet.src),str(packet_in.in_port)))
+    if packet.src == packet.dst:
+      log.info("WTF")
+    self.mac_to_port[packet.src] = packet_in.in_port
 
-    if the port associated with the destination MAC of the packet is known:
+    if packet.dst in self.mac_to_port:
       # Send packet out the associated port
-      self.resend_packet(packet_in, ...)
+      self.resend_packet(packet_in, self.mac_to_port[packet.dst])
 
       # Once you have the above working, try pushing a flow entry
       # instead of resending the packet (comment out the above and
@@ -112,11 +120,11 @@ class Tutorial (object):
       #< Add an output action, and send -- similar to resend_packet() >
 
     else:
+      log.info("flooding...")
       # Flood the packet out everything but the input port
       # This part looks familiar, right?
       self.resend_packet(packet_in, of.OFPP_ALL)
 
-    """ # DELETE THIS LINE TO START WORKING ON THIS #
 
 
   def _handle_PacketIn (self, event):
@@ -125,6 +133,7 @@ class Tutorial (object):
     """
 
     packet = event.parsed # This is the parsed packet data.
+    # log.info("PKT: %s" % str(packet.__dict__))
     if not packet.parsed:
       log.warning("Ignoring incomplete packet")
       return
@@ -136,17 +145,24 @@ class Tutorial (object):
     print "Src: " + str(packet.src)
     print "Dest: " + str(packet.dst)
     print "Event port: " + str(event.port)
-    self.act_like_hub(packet, packet_in)
-    log.info("packet in")
-    #self.act_like_switch(packet, packet_in)
+    # self.act_like_hub(packet, packet_in)
+    # log.info("packet in")
+    self.act_like_switch(packet, packet_in)
 
 
+topo = None
+def init_topo(val):
+  global topo
+  topo = val
 
 def launch ():
   """
   Starts the component
   """
+  global topo
+  log.info("TOPO: %s" % topo)
   def start_switch (event):
     log.debug("Controlling %s" % (event.connection,))
+    log.info("start switch %s -- %s" % (str(event.connection.ID), str(event.dpid)))
     Tutorial(event.connection)
   core.openflow.addListenerByName("ConnectionUp", start_switch)
