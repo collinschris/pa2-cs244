@@ -14,26 +14,23 @@ from subprocess import Popen
 from time import sleep, time
 
 from random_regular_graph import *
-from jelly_controller import init_topo
+
+n_switches = 1
+n_hosts_per_switch = 5
+n_nbr_switches_per_switch = 2
 
 class JellyFishTop(Topo):
     def build(self):
-        n_switches = 4
-        n_hosts_per_switch = 1
-        n_nbr_switches_per_switch = 3
-
-        switches = [self.addSwitch('s%d' % x) for x in range(n_switches)]
-        for i, switch in enumerate(switches):
-            # print "switch mac: %s" % str(switch.MAC())
+        self._switches = [self.addSwitch('s%d' % x) for x in range(n_switches)]
+        for i, switch in enumerate(self._switches):
             for x in range(n_hosts_per_switch):
                 host = self.addHost('h%ds%d' % (x, i))
-                # print "host mac: %s" % str(host.MAC())
                 self.addLink(host, switch)
                 print "%s <-> %s" % (host, switch)
 
-        g = make_rrg(n_nbr_switches_per_switch, n_switches)
+        self._graph = make_rrg(n_nbr_switches_per_switch, n_switches)
 
-        for edge in g.edges():
+        for edge in self._graph.edges():
             src = 's%d' % edge[0]
             dst = 's%d' % edge[1]
             self.addLink(src, dst)
@@ -49,9 +46,20 @@ def experiment(net):
 def main():
     topo = JellyFishTop()
 
-    net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
-    experiment(net)
+    net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink)
+    for i, sid in enumerate(topo._switches):
+        switch = net.get(sid)
+        for x in range(n_hosts_per_switch):
+            hid = 'h%ds%d' % (x, i)
+            host = net.get(hid)
+            switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
+            #host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
+            #switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
 
+    for edge in topo._graph.edges():
+        src_sid = 's%d' % edge[0]
+        dst_sid = 's%d' % edge[1]
+    experiment(net)
 if __name__ == "__main__":
     main()
 
