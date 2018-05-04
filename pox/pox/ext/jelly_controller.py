@@ -21,8 +21,10 @@ learning switch.
 It's roughly similar to the one Brandon Heller did for NOX.
 """
 
+from pox import lib
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
+from pox.lib.addresses import IPAddr,EthAddr,parse_cidr
 import time
 
 log = core.getLogger()
@@ -31,12 +33,12 @@ log = core.getLogger()
 def dpid_to_mac (dpid):
   return EthAddr("%012x" % (dpid & 0xffFFffFFffFF,))
 
-class Tutorial (object):
+class Switch (object):
   """
-  A Tutorial object is created for each switch that connects.
+  A Switch object is created for each switch that connects.
   A Connection object for that switch is passed to the __init__ function.
   """
-  def __init__ (self, connection):
+  def __init__ (self, connection, dpid):
     # Keep track of the connection to the switch so that we can
     # send it messages!
     self.connection = connection
@@ -44,14 +46,14 @@ class Tutorial (object):
     # This binds our PacketIn event listener
     connection.addListeners(self)
 
+    core.ARPHelper.addListeners(self)
+
     # Use this table to keep track of which ethernet address is on
     # which switch port (keys are MACs, values are ports).
     self.mac_to_port = {}
 
-    self.start_time = time.time()
-    self.delay = 10 # seconds
-
-    self.mac = None
+    self.mac = dpid_to_mac(dpid)
+    log.info(self.mac)
 
 
   def resend_packet (self, packet_in, out_port):
@@ -146,32 +148,27 @@ class Tutorial (object):
 
     # Comment out the following line and uncomment the one after
     # when starting the exercise.
-    print "Src: " + str(packet.src)
-    print "Dest: " + str(packet.dst)
-    print "Event port: " + str(event.port)
+    log.info("Src: " + str(packet.src))
+    log.info("Dest: " + str(packet.dst))
+    log.info("Event port: " + str(event.port))
     # self.act_like_hub(packet, packet_in)
     # log.info("packet in")
-    self.act_like_switch(packet, packet_in)
+    #self.act_like_switch(packet, packet_in)
 
   # doesn't work but pretty sure we need to do this
-  # def _handle_ARPRequest(self, event):
-  #   log.info("ARPRequest: %s" % str(self.mac))
-  #   event.reply = self.mac
+  def _handle_ARPRequest(self, event):
+    log.info("ARPRequest: %s" % str(self.mac))
+    # event.reply = self.mac
 
-
-topo = None
-def init_topo(val):
-  global topo
-  topo = val
 
 def launch ():
   """
   Starts the component
   """
-  global topo
-  log.info("TOPO: %s" % topo)
+  # from proto.arp_helper import launch
+  launch(eat_packets=False)
   def start_switch (event):
     log.debug("Controlling %s" % (event.connection,))
-    log.info("start switch %s -- %s" % (str(event.connection.ID), str(event.dpid)))
-    Tutorial(event.connection)
+    log.info("start switch %s -- %s" % (str(event.connection.ID), lib.util.dpid_to_str(event.dpid)))
+    Switch(event.connection, event.dpid)
   core.openflow.addListenerByName("ConnectionUp", start_switch)
