@@ -28,6 +28,8 @@ import time
 log = core.getLogger()
 
 
+def dpid_to_mac (dpid):
+  return EthAddr("%012x" % (dpid & 0xffFFffFFffFF,))
 
 class Tutorial (object):
   """
@@ -48,6 +50,8 @@ class Tutorial (object):
 
     self.start_time = time.time()
     self.delay = 10 # seconds
+
+    self.mac = None
 
 
   def resend_packet (self, packet_in, out_port):
@@ -148,6 +152,11 @@ class Tutorial (object):
     # self.act_like_hub(packet, packet_in)
     # log.info("packet in")
     self.act_like_switch(packet, packet_in)
+
+  # doesn't work but pretty sure we need to do this
+  # def _handle_ARPRequest(self, event):
+  #   log.info("ARPRequest: %s" % str(self.mac))
+  #   event.reply = self.mac
 
 
 topo = None
