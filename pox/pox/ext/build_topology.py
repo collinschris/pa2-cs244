@@ -45,6 +45,10 @@ def experiment(net):
     # net.pingAll()
     net.stop()
 
+def o(output):
+    if output != "":
+        print output
+
 def main():
     topo = JellyFishTop()
 
@@ -52,9 +56,9 @@ def main():
     for i, sid in enumerate(topo._switches):
         switch = net.get(sid)
         switch.sendCmd("ip route flush table main")
-        print switch.waitOutput()
+        o(switch.waitOutput())
         switch.sendCmd("sysctl -w net.ipv4.ip_forward=1")
-        print switch.waitOutput()
+        o(switch.waitOutput())
 
     for i, edge in enumerate(topo._graph.edges()):
         src_sid = edge[0]
@@ -78,7 +82,7 @@ def main():
             host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
             switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
             host.sendCmd("route add -net 10.0.0.0 netmask 255.0.0.0 gw %s dev %s" % (host_iface_on_switch.IP(), switch_iface_on_host))
-            print switch.waitOutput()
+            o(switch.waitOutput())
     for i, sid in enumerate(topo._switches):
         switch = net.get(sid)
         for j, j_sid in enumerate(topo._switches):
@@ -93,7 +97,7 @@ def main():
                     host_ip = net.get(hid).IP()
                     cmd = "route add -host %s gw %s dev %s" % (host_ip, nh_ip, nh_if)
                     switch.sendCmd(cmd)
-                    print switch.waitOutput()
+                    o(switch.waitOutput())
     experiment(net)
 if __name__ == "__main__":
     main()
