@@ -53,6 +53,8 @@ def main():
         switch = net.get(sid)
         switch.sendCmd("ip route flush table main")
         print switch.waitOutput()
+        switch.sendCmd("sysctl -w net.ipv4.ip_forward=1")
+        print switch.waitOutput()
 
     for i, edge in enumerate(topo._graph.edges()):
         src_sid = edge[0]
@@ -71,12 +73,10 @@ def main():
             hid = 'h%ds%d' % (x, i)
             host = net.get(hid)
             switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
-            host_iface_on_switch.setIP("10.2.%d.1/24" % i)
-            switch_iface_on_host.setIP("10.2.%d.%d/24" % (i, x + 2))
+            host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
+            switch_iface_on_host.setIP("10.2.%d.%d/31" % (i, 2 * x + 3))
             host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
             switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
-            switch.sendCmd("route add -host %s dev %s" % (host.IP(), host_iface_on_switch))
-            print switch.waitOutput()
             host.sendCmd("route add -net 10.0.0.0 netmask 255.0.0.0 gw %s dev %s" % (host_iface_on_switch.IP(), switch_iface_on_host))
             print switch.waitOutput()
     for i, sid in enumerate(topo._switches):
