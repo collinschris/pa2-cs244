@@ -84,19 +84,14 @@ def main():
         for j, j_sid in enumerate(topo._switches):
             if j != i:
                 path = k_shortest_paths(topo._graph, i, j, 1)[0]
-                print path
                 nh_sid = 's%d' % path[1]
                 nh_switch = net.get(nh_sid)
                 nh_if, reverse = switch.connectionsTo(nh_switch)[0]
-                print "%s <=> %s, %s <=> %s" % (sid, nh_sid, nh_if.IP(), reverse.IP())
-                for intf in nh_switch.intfList():
-                    print intf.IP()
                 nh_ip = nh_switch.IP(reverse)
                 for x in range(n_hosts_per_switch):
                     hid = 'h%ds%d' % (x, j)
                     host_ip = net.get(hid).IP()
                     cmd = "route add -host %s gw %s dev %s" % (host_ip, nh_ip, nh_if)
-                    print cmd
                     switch.sendCmd(cmd)
                     print switch.waitOutput()
     experiment(net)
