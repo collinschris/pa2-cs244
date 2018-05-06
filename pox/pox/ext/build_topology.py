@@ -38,16 +38,40 @@ class JellyFishTop(Topo):
             self.addLink(src, dst)
             print "%s <-> %s" % (src, dst)
 
-def experiment(net):
-    net.start()
-    sleep(3)
-    CLI(net)
-    # net.pingAll()
-    net.stop()
 
 def o(output):
     if output != "":
         print output
+
+def smart_pingall(net, topo):
+    for i, sid in enumerate(topo._switches):
+        for x in range(n_hosts_per_switch):
+            hid = 'h%ds%d' % (x, i)
+            host = net.get(hid)
+
+            for j, j_sid in enumerate(topo._switches):
+                for j_x in range(n_hosts_per_switch):
+                    next_hid = 'h%ds%d' % (j_x, j)
+                    next_host = net.get(next_hid)
+                    if next_hid != hid:
+                        host.sendCmd("ping -c 1 %s" % next_host.IP())
+                        out = host.waitOutput()
+                        if "1 packets transmitted, 1 received" not in out:
+                            print out
+                        next_host.sendCmd("ping -c 1 %s" % host.IP())
+                        out = next_host.waitOutput()
+                        if "1 packets transmitted, 1 received" not in out:
+                            print out
+    print "ping complete"
+
+def experiment(net, topo):
+    net.start()
+    sleep(1)
+    smart_pingall(net, topo)
+    CLI(net)
+    # net.pingAll()
+    net.stop()
+
 
 def main():
     topo = JellyFishTop()
@@ -82,7 +106,7 @@ def main():
             host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
             switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
             host.sendCmd("route add -net 10.0.0.0 netmask 255.0.0.0 gw %s dev %s" % (host_iface_on_switch.IP(), switch_iface_on_host))
-            o(switch.waitOutput())
+            o(host.waitOutput())
     for i, sid in enumerate(topo._switches):
         switch = net.get(sid)
         for j, j_sid in enumerate(topo._switches):
@@ -98,7 +122,7 @@ def main():
                     cmd = "route add -host %s gw %s dev %s" % (host_ip, nh_ip, nh_if)
                     switch.sendCmd(cmd)
                     o(switch.waitOutput())
-    experiment(net)
+    experiment(net, topo)
 if __name__ == "__main__":
     main()
 
