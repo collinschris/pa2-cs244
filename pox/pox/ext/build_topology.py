@@ -12,6 +12,7 @@ sys.path.append("../../")
 from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
+import subprocess
 
 from random_regular_graph import *
 
@@ -83,6 +84,7 @@ def experiment(net, topo):
 
 
 def main():
+    subprocess.call("sudo sysctl -w net.ipv4.conf.default.rp_filter=0 net.ipv4.conf.all.rp_filter=0", shell=True)
     topo = JellyFishTop()
 
     print "topology built"
