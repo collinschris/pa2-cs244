@@ -18,9 +18,9 @@ from random_regular_graph import *
 
 from k_shortest_paths import *
 
-n_switches = 60
-n_hosts_per_switch = 2
-n_nbr_switches_per_switch = 4
+n_switches = 170
+n_hosts_per_switch = 4
+n_nbr_switches_per_switch = 12
 
 class JellyFishTop(Topo):
     def build(self):
