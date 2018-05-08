@@ -20,9 +20,9 @@ from random_regular_graph import *
 from k_shortest_paths import *
 from pprint import pprint
 
-n_switches = 10
+n_switches = 30
 n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 3
+n_nbr_switches_per_switch = 8
 
 class JellyFishTop(Topo):
     def build(self):
@@ -73,8 +73,8 @@ def smart_pingall(net, topo):
 def experiment(net, topo):
     net.start()
     sleep(1)
+    # CLI(net)
     smart_pingall(net, topo)
-    CLI(net)
     # net.pingAll()
     net.stop()
 
@@ -115,7 +115,7 @@ def get_host_subnet(sidx):
     return "10.2.%d.0/24" % sidx
 
 def k_shortest_routing(net, topo):
-    k = 3
+    k = 8
     ordered_pairs = list(combinations([x for x in range(n_switches)], 2))
     ordered_pairs += [(p[1], p[0]) for p in ordered_pairs]
     pair_to_paths = {key:k_shortest_paths(topo._graph, key[0], key[1], k) for key in ordered_pairs}
@@ -184,6 +184,13 @@ def main():
     # ecmp_routing(net, topo)
     k_shortest_routing(net, topo)
     print "switch routes configured"
+
+    if False:
+        for i, sid in enumerate(topo._switches):
+            switch = net.get(sid)
+            for interface_name in switch.intfList():
+                switch.sendCmd("tcpdump -i %s &> ~/poxStartup/pox/pox/ext/tmp/%s.txt &" % (interface_name, interface_name))
+                o(switch.waitOutput())
 
     experiment(net, topo)
 if __name__ == "__main__":

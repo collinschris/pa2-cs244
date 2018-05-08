@@ -1,3 +1,4 @@
 *.pyc
 pox/jelly.log
 
+tmp/
