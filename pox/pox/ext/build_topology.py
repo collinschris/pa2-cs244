@@ -18,9 +18,9 @@ from random_regular_graph import *
 
 from k_shortest_paths import *
 
-n_switches = 12
+n_switches = 30
 n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 3
+n_nbr_switches_per_switch = 6
 
 class JellyFishTop(Topo):
     def build(self):
@@ -122,15 +122,20 @@ def main():
         switch = net.get(sid)
         for j, j_sid in enumerate(topo._switches):
             if j != i:
-                path = k_shortest_paths(topo._graph, i, j, 1)[0]
-                nh_sid = 's%d' % path[1]
-                nh_switch = net.get(nh_sid)
-                nh_if, reverse = switch.connectionsTo(nh_switch)[0]
-                nh_ip = nh_switch.IP(reverse)
+                print "%d <-> %d" % (i, j), ecmp(topo._graph, i, j, 8)
+                all_next_hop_cmds = []
+                for path in ecmp(topo._graph, i, j, 8):
+                    nh_sid = 's%d' % path[1]
+                    nh_switch = net.get(nh_sid)
+                    nh_if, reverse = switch.connectionsTo(nh_switch)[0]
+                    nh_ip = nh_switch.IP(reverse)
+                    all_next_hop_cmds.append("nexthop via %s dev %s weight 1" % (nh_ip, nh_if))
                 for x in range(n_hosts_per_switch):
                     hid = 'h%ds%d' % (x, j)
                     host_ip = net.get(hid).IP()
-                    switch.sendCmd("ip route add %s/32 via %s dev %s" % (host_ip, nh_ip, nh_if))
+                    cmd = "ip route add %s/32 %s" % (host_ip, " ".join(all_next_hop_cmds))
+                    # print cmd
+                    switch.sendCmd(cmd)
                     o(switch.waitOutput())
     print "switch routes configured"
 
