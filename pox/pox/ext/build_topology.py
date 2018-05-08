@@ -21,9 +21,9 @@ from k_shortest_paths import *
 from pprint import pprint
 import random
 
-n_switches = 10
-n_hosts_per_switch = 2
-n_nbr_switches_per_switch = 3
+n_switches = 35
+n_hosts_per_switch = 3
+n_nbr_switches_per_switch = 6
 
 k_short = True
 
@@ -76,7 +76,7 @@ def smart_pingall(net, topo):
     print "ping complete"
 
 def make_kshost_addr(sidx, hidx, ifidx):
-    return "10.%d.%d.%d/31" % (sidx, ifidx, 2 * hidx + 3))
+    return "10.%d.%d.%d/31" % (sidx, ifidx, 2 * hidx + 3)
 
 def run_load_test(net, topo):
     # get list of tuples of every ramdnly chosen pairs
@@ -110,17 +110,17 @@ def run_load_test(net, topo):
             sample_pair = (src, dst, src_switch, src_hidx)
         else:
             for if_index in range(num_paths):
-                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx))
+                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx)))
                 o(src.waitOutput())
-    for if_index in range(8)
+    for if_index in range(8):
             src, dst, src_switch, src_hidx = sample_pair
-            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx))
+            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx)))
 
 def experiment(net, topo):
     net.start()
     sleep(1)
     smart_pingall(net, topo)
-    run_load_test(net, topo)
+    #run_load_test(net, topo)
     CLI(net)
     net.stop()
 
