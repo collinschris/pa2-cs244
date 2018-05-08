@@ -20,9 +20,9 @@ from random_regular_graph import *
 from k_shortest_paths import *
 from pprint import pprint
 
-n_switches = 30
+n_switches = 10
 n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 8
+n_nbr_switches_per_switch = 2
 
 k_short = True
 
@@ -76,8 +76,8 @@ def smart_pingall(net, topo):
 def experiment(net, topo):
     net.start()
     sleep(1)
-    # CLI(net)
-    smart_pingall(net, topo)
+    CLI(net)
+    #smart_pingall(net, topo)
     # net.pingAll()
     net.stop()
 
@@ -107,12 +107,13 @@ def make_pretables(sidx, pair_to_paths):
     for (src, dst), routes in pair_to_paths.iteritems():
         if dst != sidx:
             for rid, route in enumerate(routes):
+                idx = None
                 try:
                     idx = route.index(sidx)
-                    assert (src, rid) not in pt
-                    pt[(src, rid)] = (dst, route[idx + 1])
                 except:
                     pass
+                if idx != None:
+                    pt.setdefault((src, rid), []).append((dst, route[idx + 1]))
     return pt
 
 def k_shortest_routing(net, topo):
@@ -124,19 +125,21 @@ def k_shortest_routing(net, topo):
     created_tables = set()
     for i, sid in enumerate(topo._switches):
         pretables = make_pretables(i, pair_to_paths)
+        pprint(pretables)
         switch = net.get(sid)
-        for (src, rid), (dst, nhidx) in pretables.iteritems():
+        for (src, rid), entries in pretables.iteritems():
             friendly_name = "t_%d_%d_%d" % (i, src, rid)
             if friendly_name not in created_tables:
                 subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables" % (current_tid, friendly_name), shell=True)
                 current_tid += 1
-                switch.sendCmd("ip rule add from %s lookup %s" % ("10.%d.%d.0/24" % (sidx, rid), friendly_name))
+                switch.sendCmd("ip rule add from %s lookup %s" % ("10.%d.%d.0/24" % (src, rid), friendly_name))
                 o(switch.waitOutput())
-            nh = net.get('s%d' % nhidx)
-            nh_iface_on_switch, switch_iface_on_nh = switch.connectionsTo(nh)[0]
-            cmd = "ip route add %s table %s via %s dev %s" % ("10.%d.0.0/16" % dst, friendly_name, switch_iface_on_nh.IP(), nh_iface_on_switch.name)
-            switch.sendCmd(cmd)
-            o(switch.waitOutput())
+            for dst, nhidx in entries:
+                nh = net.get('s%d' % nhidx)
+                nh_iface_on_switch, switch_iface_on_nh = switch.connectionsTo(nh)[0]
+                cmd = "ip route add %s table %s via %s dev %s" % ("10.%d.0.0/16" % dst, friendly_name, switch_iface_on_nh.IP(), nh_iface_on_switch.name)
+                switch.sendCmd(cmd)
+                o(switch.waitOutput())
 
 
 def main():
@@ -173,12 +176,20 @@ def main():
             hid = 'h%ds%d' % (x, i)
             host = net.get(hid)
             if k_short:
-                for x in range(8):
-                    switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[x]
-                    host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, x, 2 * x + 2))
-                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, x, 2 * x + 3))
+                for if_index in range(8):
+                    switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[if_index]
+                    host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * if_index + 2))
+                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * if_index + 3))
                     host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
                     switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
+                for j in range(n_switches):
+                    if i != j:
+                        cmd = ["ip route add 10.%d.0.0/16" % j]
+                        for path_index in range(len(k_shortest_paths(topo._graph, x, y, 8)))
+                            switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[path_index]
+                            cmd.append("nexthop via %s dev %s weight 1" % (host_iface_on_switch.IP(), switch_iface_on_host.name))
+                        host.sendCmd(" ".join(cmd))
+                        o(host.waitOutput())
             else:
                 switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
                 host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
