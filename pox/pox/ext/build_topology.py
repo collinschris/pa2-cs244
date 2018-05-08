@@ -75,7 +75,7 @@ def smart_pingall(net, topo):
                 print "%s can reach all" % hid
     print "ping complete"
 
-def make_host_addr(sidx, hidx, ifidx):
+def make_kshost_addr(sidx, hidx, ifidx):
     return "10.%d.%d.%d/31" % (sidx, ifidx, 2 * hidx + 3))
 
 def run_load_test(net, topo):
@@ -110,11 +110,11 @@ def run_load_test(net, topo):
             sample_pair = (src, dst, src_switch, src_hidx)
         else:
             for if_index in range(num_paths):
-                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_host_addr(src_switch, src_hidx, if_idx))
+                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx))
                 o(src.waitOutput())
     for if_index in range(8)
             src, dst, src_switch, src_hidx = sample_pair
-            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_host_addr(src_switch, src_hidx, if_idx))
+            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx))
 
 def experiment(net, topo):
     net.start()
@@ -221,7 +221,7 @@ def main():
                 for if_index in range(8):
                     switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[if_index]
                     host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * x + 2))
-                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * x + 3))
+                    switch_iface_on_host.setIP(make_kshost_addr(i, x, if_index))
                     host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
                     switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
                 for j in range(n_switches):
