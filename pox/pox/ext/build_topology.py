@@ -14,13 +14,15 @@ from subprocess import Popen
 from time import sleep, time
 import subprocess
 
+from itertools import combinations
 from random_regular_graph import *
 
 from k_shortest_paths import *
+from pprint import pprint
 
-n_switches = 30
+n_switches = 10
 n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 6
+n_nbr_switches_per_switch = 3
 
 class JellyFishTop(Topo):
     def build(self):
@@ -97,8 +99,48 @@ def ecmp_routing(net, topo):
                     switch.sendCmd(cmd)
                     o(switch.waitOutput())
 
+def make_pretables(sidx, pair_to_paths):
+    pt = {}
+    for (src, dst), routes in pair_to_paths.iteritems():
+        if dst != sidx:
+            for route in routes:
+                try:
+                    idx = route.index(sidx)
+                    pt.setdefault(src, {}).setdefault(dst, set()).add(route[idx + 1])
+                except:
+                    pass
+    return pt
+
+def get_host_subnet(sidx):
+    return "10.2.%d.0/24" % sidx
+
+def k_shortest_routing(net, topo):
+    k = 3
+    ordered_pairs = list(combinations([x for x in range(n_switches)], 2))
+    ordered_pairs += [(p[1], p[0]) for p in ordered_pairs]
+    pair_to_paths = {key:k_shortest_paths(topo._graph, key[0], key[1], k) for key in ordered_pairs}
+    for i, sid in enumerate(topo._switches):
+        pretables = make_pretables(i, pair_to_paths)
+        switch = net.get(sid)
+        for src, pretable in pretables.iteritems():
+            unique_table_id = 300 + n_switches * i + src
+            friendly_name = "t_%d_%d" % (i, src)
+            subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables" % (unique_table_id, friendly_name), shell=True)
+            switch.sendCmd("ip rule add from %s lookup %s" % (get_host_subnet(src), friendly_name))
+            o(switch.waitOutput())
+            for dst, nhs in pretable.iteritems():
+                cmd = ["ip route add %s table %s" % (get_host_subnet(dst), friendly_name)]
+                for nhidx in nhs:
+                    nh = net.get('s%d' % nhidx)
+                    nh_iface_on_switch, switch_iface_on_nh = switch.connectionsTo(nh)[0]
+                    cmd.append("nexthop via %s dev %s weight 1" % (switch_iface_on_nh.IP(), nh_iface_on_switch.name))
+                cmd_str = " ".join(cmd)
+                switch.sendCmd(cmd_str)
+                o(switch.waitOutput())
+
 
 def main():
+    subprocess.call("sudo cp ~/rt_table_cpy /etc/iproute2/rt_tables", shell=True)
     subprocess.call("sudo sysctl -w net.ipv4.conf.default.rp_filter=0 net.ipv4.conf.all.rp_filter=0", shell=True)
     topo = JellyFishTop()
     print "topology built"
@@ -139,7 +181,8 @@ def main():
             o(host.waitOutput())
     print "host/switch links configured"
 
-    ecmp_routing(net, topo)
+    # ecmp_routing(net, topo)
+    k_shortest_routing(net, topo)
     print "switch routes configured"
 
     experiment(net, topo)
