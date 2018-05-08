@@ -24,13 +24,16 @@ n_switches = 30
 n_hosts_per_switch = 1
 n_nbr_switches_per_switch = 8
 
+k_short = True
+
 class JellyFishTop(Topo):
     def build(self):
         self._switches = [self.addHost('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(self._switches):
             for x in range(n_hosts_per_switch):
                 host = self.addHost('h%ds%d' % (x, i))
-                self.addLink(host, switch)
+                for x in range(8 if k_short else 1):
+                    self.addLink(host, switch)
                 print "%s <-> %s" % (host, switch)
 
         self._graph = make_rrg(n_nbr_switches_per_switch, n_switches)
@@ -103,40 +106,37 @@ def make_pretables(sidx, pair_to_paths):
     pt = {}
     for (src, dst), routes in pair_to_paths.iteritems():
         if dst != sidx:
-            for route in routes:
+            for rid, route in enumerate(routes):
                 try:
                     idx = route.index(sidx)
-                    pt.setdefault(src, {}).setdefault(dst, set()).add(route[idx + 1])
+                    assert (src, rid) not in pt
+                    pt[(src, rid)] = (dst, route[idx + 1])
                 except:
                     pass
     return pt
 
-def get_host_subnet(sidx):
-    return "10.2.%d.0/24" % sidx
-
 def k_shortest_routing(net, topo):
+    current_tid = 300
     k = 8
     ordered_pairs = list(combinations([x for x in range(n_switches)], 2))
     ordered_pairs += [(p[1], p[0]) for p in ordered_pairs]
     pair_to_paths = {key:k_shortest_paths(topo._graph, key[0], key[1], k) for key in ordered_pairs}
+    created_tables = set()
     for i, sid in enumerate(topo._switches):
         pretables = make_pretables(i, pair_to_paths)
         switch = net.get(sid)
-        for src, pretable in pretables.iteritems():
-            unique_table_id = 300 + n_switches * i + src
-            friendly_name = "t_%d_%d" % (i, src)
-            subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables" % (unique_table_id, friendly_name), shell=True)
-            switch.sendCmd("ip rule add from %s lookup %s" % (get_host_subnet(src), friendly_name))
-            o(switch.waitOutput())
-            for dst, nhs in pretable.iteritems():
-                cmd = ["ip route add %s table %s" % (get_host_subnet(dst), friendly_name)]
-                for nhidx in nhs:
-                    nh = net.get('s%d' % nhidx)
-                    nh_iface_on_switch, switch_iface_on_nh = switch.connectionsTo(nh)[0]
-                    cmd.append("nexthop via %s dev %s weight 1" % (switch_iface_on_nh.IP(), nh_iface_on_switch.name))
-                cmd_str = " ".join(cmd)
-                switch.sendCmd(cmd_str)
+        for (src, rid), (dst, nhidx) in pretables.iteritems():
+            friendly_name = "t_%d_%d_%d" % (i, src, rid)
+            if friendly_name not in created_tables:
+                subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables" % (current_tid, friendly_name), shell=True)
+                current_tid += 1
+                switch.sendCmd("ip rule add from %s lookup %s" % ("10.%d.%d.0/24" % (sidx, rid), friendly_name))
                 o(switch.waitOutput())
+            nh = net.get('s%d' % nhidx)
+            nh_iface_on_switch, switch_iface_on_nh = switch.connectionsTo(nh)[0]
+            cmd = "ip route add %s table %s via %s dev %s" % ("10.%d.0.0/16" % dst, friendly_name, switch_iface_on_nh.IP(), nh_iface_on_switch.name)
+            switch.sendCmd(cmd)
+            o(switch.waitOutput())
 
 
 def main():
@@ -172,17 +172,27 @@ def main():
         for x in range(n_hosts_per_switch):
             hid = 'h%ds%d' % (x, i)
             host = net.get(hid)
-            switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
-            host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
-            switch_iface_on_host.setIP("10.2.%d.%d/31" % (i, 2 * x + 3))
-            host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
-            switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
-            host.sendCmd("route add -net 0.0.0.0 netmask 0.0.0.0 gw %s dev %s" % (host_iface_on_switch.IP(), switch_iface_on_host))
-            o(host.waitOutput())
+            if k_short:
+                for x in range(8):
+                    switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[x]
+                    host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, x, 2 * x + 2))
+                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, x, 2 * x + 3))
+                    host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
+                    switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
+            else:
+                switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
+                host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
+                switch_iface_on_host.setIP("10.2.%d.%d/31" % (i, 2 * x + 3))
+                host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
+                switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
+                host.sendCmd("route add -net 0.0.0.0 netmask 0.0.0.0 gw %s dev %s" % (host_iface_on_switch.IP(), switch_iface_on_host))
+                o(host.waitOutput())
     print "host/switch links configured"
 
-    # ecmp_routing(net, topo)
-    k_shortest_routing(net, topo)
+    if k_short:
+        k_shortest_routing(net, topo)
+    else:
+        ecmp_routing(net, topo)
     print "switch routes configured"
 
     if False:
