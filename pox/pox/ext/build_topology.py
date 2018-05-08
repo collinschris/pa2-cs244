@@ -19,6 +19,7 @@ from random_regular_graph import *
 
 from k_shortest_paths import *
 from pprint import pprint
+import random
 
 n_switches = 10
 n_hosts_per_switch = 2
@@ -74,9 +75,46 @@ def smart_pingall(net, topo):
                 print "%s can reach all" % hid
     print "ping complete"
 
+def make_host_addr(sidx, hidx, ifidx):
+    return "10.%d.%d.%d/31" % (sidx, ifidx, 2 * hidx + 3))
+
 def run_load_test(net, topo):
-    pass
-    # net.iperf(net.get("h0s0", "h0s8"))
+    # get list of tuples of every ramdnly chosen pairs
+    all_hosts = []
+    for sidx in range(n_switches):
+        for hidx in range(n_hosts_per_switch):
+            all_hosts.append((hidx, sidx))
+
+    all_pairs = []
+    for host1_idx, host1 in enumerate(all_hosts):
+        host2_idx = random.randint(0, len(all_hosts)-1)
+        while host1_idx == host2_idx:
+            host2_idx = random.randint(0, len(all_hosts)-1)
+        host2 = all_hosts[host2_idx]
+        all_pairs.append((host1, host2))
+
+    # set up all listeners
+    for hid in all_hosts:
+        host = net.get("h%ds%d" % hid)
+        host.sendCmd("iperf -s &")
+        o(host.waitOutput())
+
+    # setup all senders
+    sample_pair = None
+    for src_hid, dst_hid in all_pairs:
+        src, dst = net.get("h%ds%d" % src_hid, "h%ds%d" % dst_hid)
+        src_hidx, src_switch = src_hid
+        _, dst_switch = dst_hid
+        num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch))
+        if sample_pair == None and num_paths == 8:
+            sample_pair = (src, dst, src_switch, src_hidx)
+        else:
+            for if_index in range(num_paths):
+                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_host_addr(src_switch, src_hidx, if_idx))
+                o(src.waitOutput())
+    for if_index in range(8)
+            src, dst, src_switch, src_hidx = sample_pair
+            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_host_addr(src_switch, src_hidx, if_idx))
 
 def experiment(net, topo):
     net.start()
