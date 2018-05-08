@@ -20,9 +20,9 @@ from random_regular_graph import *
 from k_shortest_paths import *
 from pprint import pprint
 
-n_switches = 10
+n_switches = 30
 n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 2
+n_nbr_switches_per_switch = 8
 
 k_short = True
 
@@ -76,8 +76,8 @@ def smart_pingall(net, topo):
 def experiment(net, topo):
     net.start()
     sleep(1)
+    smart_pingall(net, topo)
     CLI(net)
-    #smart_pingall(net, topo)
     # net.pingAll()
     net.stop()
 
@@ -125,12 +125,11 @@ def k_shortest_routing(net, topo):
     created_tables = set()
     for i, sid in enumerate(topo._switches):
         pretables = make_pretables(i, pair_to_paths)
-        pprint(pretables)
         switch = net.get(sid)
         for (src, rid), entries in pretables.iteritems():
             friendly_name = "t_%d_%d_%d" % (i, src, rid)
             if friendly_name not in created_tables:
-                subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables" % (current_tid, friendly_name), shell=True)
+                subprocess.call("echo '%d %s' | sudo tee --append /etc/iproute2/rt_tables > /dev/null" % (current_tid, friendly_name), shell=True)
                 current_tid += 1
                 switch.sendCmd("ip rule add from %s lookup %s" % ("10.%d.%d.0/24" % (src, rid), friendly_name))
                 o(switch.waitOutput())
@@ -185,7 +184,7 @@ def main():
                 for j in range(n_switches):
                     if i != j:
                         cmd = ["ip route add 10.%d.0.0/16" % j]
-                        for path_index in range(len(k_shortest_paths(topo._graph, x, y, 8)))
+                        for path_index in range(len(k_shortest_paths(topo._graph, i, j, 8))):
                             switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[path_index]
                             cmd.append("nexthop via %s dev %s weight 1" % (host_iface_on_switch.IP(), switch_iface_on_host.name))
                         host.sendCmd(" ".join(cmd))
