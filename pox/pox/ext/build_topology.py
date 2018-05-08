@@ -130,7 +130,7 @@ def main():
                 for x in range(n_hosts_per_switch):
                     hid = 'h%ds%d' % (x, j)
                     host_ip = net.get(hid).IP()
-                    switch.sendCmd("route add -host %s gw %s dev %s" % (host_ip, nh_ip, nh_if))
+                    switch.sendCmd("ip route add %s/32 via %s dev %s" % (host_ip, nh_ip, nh_if))
                     o(switch.waitOutput())
     print "switch routes configured"
 
