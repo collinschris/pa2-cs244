@@ -76,6 +76,27 @@ def experiment(net, topo):
     # net.pingAll()
     net.stop()
 
+def ecmp_routing(net, topo):
+    for i, sid in enumerate(topo._switches):
+        switch = net.get(sid)
+        for j, j_sid in enumerate(topo._switches):
+            if j != i:
+                print "%d <-> %d" % (i, j), ecmp(topo._graph, i, j, 8)
+                all_next_hop_cmds = []
+                for path in ecmp(topo._graph, i, j, 8):
+                    nh_sid = 's%d' % path[1]
+                    nh_switch = net.get(nh_sid)
+                    nh_if, reverse = switch.connectionsTo(nh_switch)[0]
+                    nh_ip = nh_switch.IP(reverse)
+                    all_next_hop_cmds.append("nexthop via %s dev %s weight 1" % (nh_ip, nh_if))
+                for x in range(n_hosts_per_switch):
+                    hid = 'h%ds%d' % (x, j)
+                    host_ip = net.get(hid).IP()
+                    cmd = "ip route add %s/32 %s" % (host_ip, " ".join(all_next_hop_cmds))
+                    # print cmd
+                    switch.sendCmd(cmd)
+                    o(switch.waitOutput())
+
 
 def main():
     subprocess.call("sudo sysctl -w net.ipv4.conf.default.rp_filter=0 net.ipv4.conf.all.rp_filter=0", shell=True)
@@ -118,25 +139,7 @@ def main():
             o(host.waitOutput())
     print "host/switch links configured"
 
-    for i, sid in enumerate(topo._switches):
-        switch = net.get(sid)
-        for j, j_sid in enumerate(topo._switches):
-            if j != i:
-                print "%d <-> %d" % (i, j), ecmp(topo._graph, i, j, 8)
-                all_next_hop_cmds = []
-                for path in ecmp(topo._graph, i, j, 8):
-                    nh_sid = 's%d' % path[1]
-                    nh_switch = net.get(nh_sid)
-                    nh_if, reverse = switch.connectionsTo(nh_switch)[0]
-                    nh_ip = nh_switch.IP(reverse)
-                    all_next_hop_cmds.append("nexthop via %s dev %s weight 1" % (nh_ip, nh_if))
-                for x in range(n_hosts_per_switch):
-                    hid = 'h%ds%d' % (x, j)
-                    host_ip = net.get(hid).IP()
-                    cmd = "ip route add %s/32 %s" % (host_ip, " ".join(all_next_hop_cmds))
-                    # print cmd
-                    switch.sendCmd(cmd)
-                    o(switch.waitOutput())
+    ecmp_routing(net, topo)
     print "switch routes configured"
 
     experiment(net, topo)
