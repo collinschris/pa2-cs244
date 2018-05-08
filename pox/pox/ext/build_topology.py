@@ -20,20 +20,21 @@ from random_regular_graph import *
 from k_shortest_paths import *
 from pprint import pprint
 
-n_switches = 30
-n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 8
+n_switches = 10
+n_hosts_per_switch = 2
+n_nbr_switches_per_switch = 3
 
 k_short = True
 
 class JellyFishTop(Topo):
     def build(self):
+        linkopts = dict(bw=10, max_queue_size=1000) # 10Mbits/sec
         self._switches = [self.addHost('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(self._switches):
             for x in range(n_hosts_per_switch):
                 host = self.addHost('h%ds%d' % (x, i))
                 for x in range(8 if k_short else 1):
-                    self.addLink(host, switch)
+                    self.addLink(host, switch, **linkopts)
                 print "%s <-> %s" % (host, switch)
 
         self._graph = make_rrg(n_nbr_switches_per_switch, n_switches)
@@ -41,7 +42,7 @@ class JellyFishTop(Topo):
         for edge in self._graph.edges():
             src = 's%d' % edge[0]
             dst = 's%d' % edge[1]
-            self.addLink(src, dst)
+            self.addLink(src, dst, **linkopts)
             print "%s <-> %s" % (src, dst)
 
 
@@ -73,12 +74,16 @@ def smart_pingall(net, topo):
                 print "%s can reach all" % hid
     print "ping complete"
 
+def run_load_test(net, topo):
+    pass
+    # net.iperf(net.get("h0s0", "h0s8"))
+
 def experiment(net, topo):
     net.start()
     sleep(1)
     smart_pingall(net, topo)
+    run_load_test(net, topo)
     CLI(net)
-    # net.pingAll()
     net.stop()
 
 def ecmp_routing(net, topo):
@@ -177,8 +182,8 @@ def main():
             if k_short:
                 for if_index in range(8):
                     switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[if_index]
-                    host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * if_index + 2))
-                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * if_index + 3))
+                    host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * x + 2))
+                    switch_iface_on_host.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * x + 3))
                     host.setARP(switch.IP(host_iface_on_switch), switch.MAC(host_iface_on_switch))
                     switch.setARP(host.IP(switch_iface_on_host), host.MAC(switch_iface_on_host))
                 for j in range(n_switches):
@@ -189,6 +194,11 @@ def main():
                             cmd.append("nexthop via %s dev %s weight 1" % (host_iface_on_switch.IP(), switch_iface_on_host.name))
                         host.sendCmd(" ".join(cmd))
                         o(host.waitOutput())
+                    else:
+                        switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
+                        host.sendCmd("ip route add 10.%d.0.0/16 via %s dev %s" % (j, host_iface_on_switch.IP(), switch_iface_on_host.name))
+                        o(host.waitOutput())
+
             else:
                 switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
                 host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
@@ -200,11 +210,14 @@ def main():
     print "host/switch links configured"
 
     if k_short:
+        print "k shortests routing"
         k_shortest_routing(net, topo)
     else:
+        print "ecmp routing"
         ecmp_routing(net, topo)
     print "switch routes configured"
 
+    # debug
     if False:
         for i, sid in enumerate(topo._switches):
             switch = net.get(sid)
