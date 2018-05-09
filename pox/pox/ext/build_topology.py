@@ -23,11 +23,11 @@ import random
 
 TMP_DIR_PATH = "~/poxStartup/pox/pox/ext/tmp"
 
-n_switches = 50
+n_switches = 41
 n_hosts_per_switch = 4
-n_nbr_switches_per_switch = 7
+n_nbr_switches_per_switch = 4
 
-k_short = False
+k_short = True
 
 class JellyFishTop(Topo):
     def build(self):
@@ -138,9 +138,9 @@ def experiment(net, topo):
     net.start()
     sleep(1)
     # smart_pingall(net, topo)
-    run_load_test(net, topo, is_8_flow_k_short=False, num_flows=8) # can be used for ecmp/k_short
+    # run_load_test(net, topo, is_8_flow_k_short=False, num_flows=8) # can be used for ecmp/k_short
     # run_load_test(net, topo, is_8_flow_k_short=False, num_flows=1) # con be used for ecmp/k_short
-    # run_load_test(net, topo, is_8_flow_k_short=True) # k_short 8 paths only
+    run_load_test(net, topo, is_8_flow_k_short=True) # k_short 8 paths only
     CLI(net)
     net.stop()
 
