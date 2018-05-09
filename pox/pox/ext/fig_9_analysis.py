@@ -54,7 +54,6 @@ for switch in range(len(g.nodes())):
         g.add_node("h%d" % cnt)
         g.add_edge("h%d" % cnt, switch)
         cnt += 1
-print nx.diameter(g)
 
 # k shortest paths
 all_k_shortest_paths = find_all_k_shorest_paths(g, 8)
@@ -76,7 +75,6 @@ print "ecmp 64"
 
 # plot results
 max_range = max(len(sorted_ecmp_8_path_counts), len(sorted_k_shortest_path_counts), len(sorted_ecmp_64_path_counts))
-print "max distinct links:", max_range
 y_axis = [x for x in range(max_range)]
 plt.plot(y_axis, sorted_ecmp_8_path_counts)
 plt.plot(y_axis, sorted_ecmp_64_path_counts)

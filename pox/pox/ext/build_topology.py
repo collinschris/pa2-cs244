@@ -9,7 +9,6 @@ from mininet.node import Controller
 from mininet.node import RemoteController
 from mininet.cli import CLI
 sys.path.append("../../")
-from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
 import subprocess
@@ -26,8 +25,10 @@ TMP_DIR_PATH = "~/poxStartup/pox/pox/ext/tmp"
 n_switches = 41
 n_hosts_per_switch = 4
 n_nbr_switches_per_switch = 4
+load_test_time = 30 # seconds
 
-k_short = True
+k_short = False
+quiet = False
 
 class JellyFishTop(Topo):
     def build(self):
@@ -38,7 +39,8 @@ class JellyFishTop(Topo):
                 host = self.addHost('h%ds%d' % (x, i))
                 for x in range(8 if k_short else 1):
                     self.addLink(host, switch, **linkopts)
-                print "%s <-> %s" % (host, switch)
+                if not quiet:
+                    print "%s <-> %s" % (host, switch)
 
         self._graph = make_rrg(n_nbr_switches_per_switch, n_switches)
 
@@ -47,13 +49,15 @@ class JellyFishTop(Topo):
             src = 's%d' % edge[0]
             dst = 's%d' % edge[1]
             self.addLink(src, dst, **linkopts)
-            print "%s <-> %s" % (src, dst)
+            if not quiet:
+                print "%s <-> %s" % (src, dst)
 
 
 def o(output):
-    if output != "":
+    if output != "" and not quiet:
         print output
 
+# pingall with better messages and only between host-host connections
 def smart_pingall(net, topo):
     for i, sid in enumerate(topo._switches):
         for x in range(n_hosts_per_switch):
@@ -105,16 +109,18 @@ def run_load_test(net, topo, is_8_flow_k_short=True, num_flows=1):
         src_hidx, src_switch = src_hid
         _, dst_switch = dst_hid
         if is_8_flow_k_short:
+            # force all 8 paths to be used (rather than round robin)
             num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch, 8))
             for if_idx in range(num_paths):
                 file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
                 src_iface_ip = make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx)
                 dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
-                src_cmd = "sleep 1 && iperf -c %s -B %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
+                src_cmd = "sleep 1 && iperf -c %s -B %s -t %d -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, load_test_time, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
                 current_port += 1
-                print src.name, src_cmd
-                print dst.name, dst_cmd
-                print "========="
+                if not quiet:
+                    print src.name, src_cmd
+                    print dst.name, dst_cmd
+                    print "========="
                 dst.sendCmd(dst_cmd)
                 o(dst.waitOutput())
                 src.sendCmd(src_cmd)
@@ -124,24 +130,27 @@ def run_load_test(net, topo, is_8_flow_k_short=True, num_flows=1):
                 file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
                 current_port += 1
                 dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
-                src_cmd = "sleep 1 && iperf -c %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
-                print src.name, src_cmd
-                print dst.name, dst_cmd
-                print "========="
+                src_cmd = "sleep 1 && iperf -c %s -t %d -p %d -f k &> %s/%s &" % (dst.IP(), load_test_time, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
+                if not quiet:
+                    print src.name, src_cmd
+                    print dst.name, dst_cmd
+                    print "========="
                 dst.sendCmd(dst_cmd)
                 o(dst.waitOutput())
                 src.sendCmd(src_cmd)
                 o(src.waitOutput())
 
 
-def experiment(net, topo):
+def experiment(net, topo, n_flows):
+    assert n_flows == 1 or n_flows == 8
     net.start()
     sleep(1)
-    # smart_pingall(net, topo)
-    # run_load_test(net, topo, is_8_flow_k_short=False, num_flows=8) # can be used for ecmp/k_short
-    # run_load_test(net, topo, is_8_flow_k_short=False, num_flows=1) # con be used for ecmp/k_short
-    run_load_test(net, topo, is_8_flow_k_short=True) # k_short 8 paths only
-    CLI(net)
+    if k_short and n_flows == 8:
+        run_load_test(net, topo, is_8_flow_k_short=True) # k_short 8 paths only
+    else:
+        run_load_test(net, topo, is_8_flow_k_short=False, num_flows=n_flows) # can be used for ecmp/k_short
+    print "running load test..."
+    sleep(load_test_time * 5) # give plenty of time for test to finish
     net.stop()
 
 def ecmp_routing(net, topo):
@@ -149,7 +158,8 @@ def ecmp_routing(net, topo):
         switch = net.get(sid)
         for j, j_sid in enumerate(topo._switches):
             if j != i:
-                print "%d <-> %d" % (i, j), ecmp(topo._graph, i, j, 8)
+                if not quiet:
+                    print "%d <-> %d" % (i, j), ecmp(topo._graph, i, j, 8)
                 all_next_hop_cmds = []
                 for path in ecmp(topo._graph, i, j, 8):
                     nh_sid = 's%d' % path[1]
@@ -205,12 +215,41 @@ def k_shortest_routing(net, topo):
 
 
 def main():
+    global k_short, quiet
+    n_flows = None
+    if "--route-proto" in sys.argv:
+        idx = sys.argv.index("--route-proto") + 1
+        if idx >= len(sys.argv):
+            print "invalid routing protocol: " + "\"" + proto + "\""
+            exit(0)
+        proto = sys.argv[idx]
+        if proto == "8-shortest-1-flow":
+            k_short = True
+            n_flows = 1
+        elif proto == "8-shortest-8-flow":
+            k_short = True
+            n_flows = 8
+        elif proto == "ecmp-1-flow":
+            k_short = False
+            n_flows = 1
+        elif proto == "ecmp-8-flow":
+            k_short = False
+            n_flows = 8
+        else:
+            print "invalid routing protocol"
+            exit(0)
+    if "-q" in sys.argv:
+        quiet = True
+
+    # reset routing tables at each run... ~/rt_table_cpy must exist
     subprocess.call("sudo cp ~/rt_table_cpy /etc/iproute2/rt_tables", shell=True)
+    # turn off reverse path filtering to allow multipath routing schemes
     subprocess.call("sudo sysctl -w net.ipv4.conf.default.rp_filter=0 net.ipv4.conf.all.rp_filter=0", shell=True)
+
     topo = JellyFishTop()
     print "topology built"
 
-    net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller = JELLYPOX)
+    net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink)
     print "network constructed"
 
     for i, sid in enumerate(topo._switches):
@@ -238,6 +277,7 @@ def main():
             hid = 'h%ds%d' % (x, i)
             host = net.get(hid)
             if k_short:
+                # 8 shortest paths
                 for if_index in range(8):
                     switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[if_index]
                     host_iface_on_switch.setIP("10.%d.%d.%d/31" % (i, if_index, 2 * x + 2))
@@ -258,6 +298,7 @@ def main():
                         o(host.waitOutput())
 
             else:
+                # ecmp
                 switch_iface_on_host, host_iface_on_switch = host.connectionsTo(switch)[0]
                 host_iface_on_switch.setIP("10.2.%d.%d/31" % (i, 2 * x + 2))
                 switch_iface_on_host.setIP("10.2.%d.%d/31" % (i, 2 * x + 3))
@@ -275,15 +316,7 @@ def main():
         ecmp_routing(net, topo)
     print "switch routes configured"
 
-    # debug
-    if False:
-        for i, sid in enumerate(topo._switches):
-            switch = net.get(sid)
-            for interface_name in switch.intfList():
-                switch.sendCmd("tcpdump -i %s &> %s/%s.txt &" % (interface_name, TMP_DIR_PATH, interface_name))
-                o(switch.waitOutput())
-
-    experiment(net, topo)
+    experiment(net, topo, n_flows)
 if __name__ == "__main__":
     main()
 
