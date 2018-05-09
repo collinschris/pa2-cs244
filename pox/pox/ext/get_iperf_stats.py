@@ -22,7 +22,7 @@ for file_name in server_files:
         if key in all_bandwidths:
             all_bandwidths[key] += get_bandwidth_from_file(file_name)
         else:
-            all_bandwidths[key] = 0
+            all_bandwidths[key] = get_bandwidth_from_file(file_name)
     except Exception as e:
         print e
 

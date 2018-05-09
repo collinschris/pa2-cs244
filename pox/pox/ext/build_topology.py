@@ -23,11 +23,11 @@ import random
 
 TMP_DIR_PATH = "~/poxStartup/pox/pox/ext/tmp"
 
-n_switches = 30
+n_switches = 50
 n_hosts_per_switch = 4
-n_nbr_switches_per_switch = 6
+n_nbr_switches_per_switch = 7
 
-k_short = True
+k_short = False
 
 class JellyFishTop(Topo):
     def build(self):
@@ -84,7 +84,7 @@ def make_kshost_addr(sidx, hidx, ifidx):
 def make_kshost_addr_no_subnet(sidx, hidx, ifidx):
     return "10.%d.%d.%d" % (sidx, ifidx, 2 * hidx + 3)
 
-def run_load_test(net, topo):
+def run_load_test(net, topo, is_8_flow_k_short=True, num_flows=1):
     # get list of tuples of every randomly chosen pairs
     all_hosts = []
     for sidx in range(n_switches):
@@ -104,27 +104,43 @@ def run_load_test(net, topo):
         src, dst = net.get("h%ds%d" % src_hid, "h%ds%d" % dst_hid)
         src_hidx, src_switch = src_hid
         _, dst_switch = dst_hid
-        num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch, 8))
-        for if_idx in range(num_paths):
-            file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
-            src_iface_ip = make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx)
-            dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
-            src_cmd = "sleep 1 && iperf -c %s -B %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
-            current_port += 1
-            print src.name, src_cmd
-            print dst.name, dst_cmd
-            print "========="
-            dst.sendCmd(dst_cmd)
-            o(dst.waitOutput())
-            src.sendCmd(src_cmd)
-            o(src.waitOutput())
+        if is_8_flow_k_short:
+            num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch, 8))
+            for if_idx in range(num_paths):
+                file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
+                src_iface_ip = make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx)
+                dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
+                src_cmd = "sleep 1 && iperf -c %s -B %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
+                current_port += 1
+                print src.name, src_cmd
+                print dst.name, dst_cmd
+                print "========="
+                dst.sendCmd(dst_cmd)
+                o(dst.waitOutput())
+                src.sendCmd(src_cmd)
+                o(src.waitOutput())
+        else:
+            for _ in range(num_flows):
+                file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
+                current_port += 1
+                dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
+                src_cmd = "sleep 1 && iperf -c %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
+                print src.name, src_cmd
+                print dst.name, dst_cmd
+                print "========="
+                dst.sendCmd(dst_cmd)
+                o(dst.waitOutput())
+                src.sendCmd(src_cmd)
+                o(src.waitOutput())
 
 
 def experiment(net, topo):
     net.start()
     sleep(1)
     # smart_pingall(net, topo)
-    run_load_test(net, topo)
+    run_load_test(net, topo, is_8_flow_k_short=False, num_flows=8) # can be used for ecmp/k_short
+    # run_load_test(net, topo, is_8_flow_k_short=False, num_flows=1) # con be used for ecmp/k_short
+    # run_load_test(net, topo, is_8_flow_k_short=True) # k_short 8 paths only
     CLI(net)
     net.stop()
 
