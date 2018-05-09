@@ -4,6 +4,7 @@ python fig_9_analysis.py
 ```
 
 Reproduce Table 1:
+
 To reproduce table 1, you must have access to a linux machine (we used Ubuntu Server 16.04 LTS (HVM)) with sufficient computing capacity (at least 8 CPUs). Install mininet (v 2.3.0d1). Then make a copy of the operating system's default routing table:
 ```
 cp /etc/iproute2/rt_tables ~/rt_table_cpy
@@ -18,4 +19,4 @@ sudo ./table1.sh --route-proto ecmp-1-flow
 sudo ./table1.sh --route-proto ecmp-8-flow
 ```
 
-To limit console output, you can optionally add `-q` flag.
+To limit console output, you can optionally add the `-q` flag.
