@@ -21,9 +21,11 @@ from k_shortest_paths import *
 from pprint import pprint
 import random
 
-n_switches = 35
-n_hosts_per_switch = 3
-n_nbr_switches_per_switch = 6
+TMP_DIR_PATH = "~/poxStartup/pox/pox/ext/tmp"
+
+n_switches = 12
+n_hosts_per_switch = 1
+n_nbr_switches_per_switch = 4
 
 k_short = True
 
@@ -78,6 +80,9 @@ def smart_pingall(net, topo):
 def make_kshost_addr(sidx, hidx, ifidx):
     return "10.%d.%d.%d/31" % (sidx, ifidx, 2 * hidx + 3)
 
+def make_kshost_addr_no_subnet(sidx, hidx, ifidx):
+    return "10.%d.%d.%d" % (sidx, ifidx, 2 * hidx + 3)
+
 def run_load_test(net, topo):
     # get list of tuples of every ramdnly chosen pairs
     all_hosts = []
@@ -94,33 +99,36 @@ def run_load_test(net, topo):
         all_pairs.append((host1, host2))
 
     # set up all listeners
-    for hid in all_hosts:
-        host = net.get("h%ds%d" % hid)
-        host.sendCmd("iperf -s &")
-        o(host.waitOutput())
+    # for hid in all_hosts:
+    #     host = net.get("h%ds%d" % hid)
+    #     host.sendCmd("iperf -s &")
+    #     o(host.waitOutput())
 
     # setup all senders
-    sample_pair = None
+    current_port = 5001
     for src_hid, dst_hid in all_pairs:
         src, dst = net.get("h%ds%d" % src_hid, "h%ds%d" % dst_hid)
         src_hidx, src_switch = src_hid
         _, dst_switch = dst_hid
-        num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch))
-        if sample_pair == None and num_paths == 8:
-            sample_pair = (src, dst, src_switch, src_hidx)
-        else:
-            for if_index in range(num_paths):
-                src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx)))
-                o(src.waitOutput())
-    for if_index in range(8):
-            src, dst, src_switch, src_hidx = sample_pair
-            src.sendCmd("iperf -c %s -B %s &" % (dst.IP(), make_kshost_addr(src_switch, src_hidx, if_idx)))
+        num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch, 8))
+        for if_idx in range(num_paths):
+            dst_cmd = "iperf -s -p %d &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-%s:%s-server" % (src.name, dst.name, current_port))
+            src_cmd = "iperf -c %s -B %s -t 15 -p %d &> %s/%s &" % (dst.IP(), make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx), current_port, TMP_DIR_PATH, "%s-%s:%s-client" % (src.name, dst.name, current_port))
+            current_port += 1
+            print src.name, src_cmd
+            print dst.name, dst_cmd
+            print "========="
+            dst.sendCmd(dst_cmd)
+            o(dst.waitOutput())
+            src.sendCmd(src_cmd)
+            o(src.waitOutput())
+
 
 def experiment(net, topo):
     net.start()
     sleep(1)
-    smart_pingall(net, topo)
-    #run_load_test(net, topo)
+    # smart_pingall(net, topo)
+    run_load_test(net, topo)
     CLI(net)
     net.stop()
 
@@ -260,7 +268,7 @@ def main():
         for i, sid in enumerate(topo._switches):
             switch = net.get(sid)
             for interface_name in switch.intfList():
-                switch.sendCmd("tcpdump -i %s &> ~/poxStartup/pox/pox/ext/tmp/%s.txt &" % (interface_name, interface_name))
+                switch.sendCmd("tcpdump -i %s &> %s/%s.txt &" % (interface_name, TMP_DIR_PATH, interface_name))
                 o(switch.waitOutput())
 
     experiment(net, topo)
