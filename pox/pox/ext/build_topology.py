@@ -31,7 +31,7 @@ k_short = True
 
 class JellyFishTop(Topo):
     def build(self):
-        linkopts = dict(bw=5, max_queue_size=1000) # 10Mbits/sec
+        linkopts = dict(bw=5, max_queue_size=1000) # bw in Mbits/sec
         self._switches = [self.addHost('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(self._switches):
             for x in range(n_hosts_per_switch):
@@ -42,6 +42,7 @@ class JellyFishTop(Topo):
 
         self._graph = make_rrg(n_nbr_switches_per_switch, n_switches)
 
+        linkopts["bw"] *= n_hosts_per_switch
         for edge in self._graph.edges():
             src = 's%d' % edge[0]
             dst = 's%d' % edge[1]

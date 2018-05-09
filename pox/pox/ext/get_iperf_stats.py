@@ -15,12 +15,16 @@ def average(nums):
     return sum(nums) / len(nums)
 
 server_files = [f for f in listdir(TMP_DIR_PATH) if "server" in f and isfile(join(TMP_DIR_PATH, f))]
-all_bandwidths = []
+all_bandwidths = {}
 for file_name in server_files:
     try:
-        all_bandwidths.append(get_bandwidth_from_file(file_name))
+        key = file_name.split(":")[0]
+        if key in all_bandwidths:
+            all_bandwidths[key] += get_bandwidth_from_file(file_name)
+        else:
+            all_bandwidths[key] = 0
     except Exception as e:
         print e
 
 
-print "Average:", average(all_bandwidths), get_units(server_files[0])
+print "Average:", average(all_bandwidths.values()), get_units(server_files[0])
