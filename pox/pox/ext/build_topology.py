@@ -84,7 +84,7 @@ def make_kshost_addr_no_subnet(sidx, hidx, ifidx):
     return "10.%d.%d.%d" % (sidx, ifidx, 2 * hidx + 3)
 
 def run_load_test(net, topo):
-    # get list of tuples of every ramdnly chosen pairs
+    # get list of tuples of every randomly chosen pairs
     all_hosts = []
     for sidx in range(n_switches):
         for hidx in range(n_hosts_per_switch):
@@ -98,13 +98,6 @@ def run_load_test(net, topo):
         host2 = all_hosts[host2_idx]
         all_pairs.append((host1, host2))
 
-    # set up all listeners
-    # for hid in all_hosts:
-    #     host = net.get("h%ds%d" % hid)
-    #     host.sendCmd("iperf -s &")
-    #     o(host.waitOutput())
-
-    # setup all senders
     current_port = 5001
     for src_hid, dst_hid in all_pairs:
         src, dst = net.get("h%ds%d" % src_hid, "h%ds%d" % dst_hid)
@@ -112,14 +105,17 @@ def run_load_test(net, topo):
         _, dst_switch = dst_hid
         num_paths = len(k_shortest_paths(topo._graph, src_switch, dst_switch, 8))
         for if_idx in range(num_paths):
-            dst_cmd = "iperf -s -p %d &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-%s:%s-server" % (src.name, dst.name, current_port))
-            src_cmd = "iperf -c %s -B %s -t 15 -p %d &> %s/%s &" % (dst.IP(), make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx), current_port, TMP_DIR_PATH, "%s-%s:%s-client" % (src.name, dst.name, current_port))
+            file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
+            src_iface_ip = make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx)
+            dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
+            src_cmd = "iperf -c %s -B %s -t 15 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
             current_port += 1
             print src.name, src_cmd
             print dst.name, dst_cmd
             print "========="
             dst.sendCmd(dst_cmd)
             o(dst.waitOutput())
+            sleep(0.1) # give time for server to start before connecting
             src.sendCmd(src_cmd)
             o(src.waitOutput())
 
