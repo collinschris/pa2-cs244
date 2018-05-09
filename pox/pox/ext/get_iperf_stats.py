@@ -5,7 +5,7 @@ TMP_DIR_PATH = "/home/ubuntu/poxStartup/pox/pox/ext/tmp"
 
 def get_bandwidth_from_file(file_name):
     with open("%s/%s" % (TMP_DIR_PATH, file_name), "r") as f:
-        return int(f.readlines()[-1].split(" ")[-2]) # last line, 2nd to last text element
+        return float(f.readlines()[-1].split(" ")[-2]) # last line, 2nd to last text element
 
 def get_units(file_name):
     with open("%s/%s" % (TMP_DIR_PATH, file_name), "r") as f:
@@ -14,9 +14,13 @@ def get_units(file_name):
 def average(nums):
     return sum(nums) / len(nums)
 
-all_files = [f for f in listdir(TMP_DIR_PATH) if isfile(join(TMP_DIR_PATH, f))]
+server_files = [f for f in listdir(TMP_DIR_PATH) if "server" in f and isfile(join(TMP_DIR_PATH, f))]
 all_bandwidths = []
-for file_name in all_files:
-    all_bandwidths.append(get_bandwidth_from_file(file_name))
+for file_name in server_files:
+    try:
+        all_bandwidths.append(get_bandwidth_from_file(file_name))
+    except Exception as e:
+        print e
 
-print "Average:", average(all_bandwidths), get_units(all_files[0])
+
+print "Average:", average(all_bandwidths), get_units(server_files[0])

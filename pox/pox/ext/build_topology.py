@@ -23,15 +23,15 @@ import random
 
 TMP_DIR_PATH = "~/poxStartup/pox/pox/ext/tmp"
 
-n_switches = 12
-n_hosts_per_switch = 1
-n_nbr_switches_per_switch = 4
+n_switches = 30
+n_hosts_per_switch = 4
+n_nbr_switches_per_switch = 6
 
 k_short = True
 
 class JellyFishTop(Topo):
     def build(self):
-        linkopts = dict(bw=10, max_queue_size=1000) # 10Mbits/sec
+        linkopts = dict(bw=5, max_queue_size=1000) # 10Mbits/sec
         self._switches = [self.addHost('s%d' % x) for x in range(n_switches)]
         for i, switch in enumerate(self._switches):
             for x in range(n_hosts_per_switch):
@@ -108,14 +108,13 @@ def run_load_test(net, topo):
             file_name_prefix = "%s-%s:%s" % (src.name, dst.name, current_port)
             src_iface_ip = make_kshost_addr_no_subnet(src_switch, src_hidx, if_idx)
             dst_cmd = "iperf -s -p %d -f k &> %s/%s &" % (current_port, TMP_DIR_PATH, "%s-server" % file_name_prefix)
-            src_cmd = "iperf -c %s -B %s -t 15 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
+            src_cmd = "sleep 1 && iperf -c %s -B %s -t 30 -p %d -f k &> %s/%s &" % (dst.IP(), src_iface_ip, current_port, TMP_DIR_PATH, "%s-client" % file_name_prefix)
             current_port += 1
             print src.name, src_cmd
             print dst.name, dst_cmd
             print "========="
             dst.sendCmd(dst_cmd)
             o(dst.waitOutput())
-            sleep(0.1) # give time for server to start before connecting
             src.sendCmd(src_cmd)
             o(src.waitOutput())
 
