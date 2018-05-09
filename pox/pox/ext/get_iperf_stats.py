@@ -24,7 +24,7 @@ for file_name in server_files:
         else:
             all_bandwidths[key] = get_bandwidth_from_file(file_name)
     except Exception as e:
-        print e, file_name
+        pass
 
 
 avg = average(all_bandwidths.values())
