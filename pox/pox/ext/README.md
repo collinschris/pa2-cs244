@@ -1,9 +1,16 @@
-Reproduce Figure 9:
+## Reproduce Figure 9:
+
+Ensure that python 2.7 is installed. Then install the necessary libraries with `pip`.
+```
+pip install networkx
+pip install matplotlib
+```
+Then run the reproduction script:
 ```
 python fig_9_analysis.py
 ```
 
-Reproduce Table 1:
+## Reproduce Table 1:
 
 To reproduce table 1, you must have access to a linux machine (we used Ubuntu Server 16.04 LTS (HVM)) with sufficient computing capacity (at least 8 CPUs). Install mininet (v 2.3.0d1). Then make a copy of the operating system's default routing table:
 ```
