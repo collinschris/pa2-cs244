@@ -1,4 +1,4 @@
-from k_shortest_paths import *
+from shortest_paths import *
 from random_regular_graph import *
 from itertools import combinations
 import matplotlib.pyplot as plt

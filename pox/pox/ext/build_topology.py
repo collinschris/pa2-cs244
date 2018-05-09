@@ -16,7 +16,7 @@ import subprocess
 from itertools import combinations
 from random_regular_graph import *
 
-from k_shortest_paths import *
+from shortest_paths import *
 from pprint import pprint
 import random
 
